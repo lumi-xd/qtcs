@@ -909,11 +909,9 @@
                     const ref = db.ref('trackerData/' + hash);
                     const snap = await ref.once('value');
                     const cloud = snap.val();
-                    // Store data with username and password inside
                     const payload = { username: u, password: p, data: wholeData };
                     if (!cloud) { await ref.set(payload); alert('✅ Created'); setCloudCreds({ username: u, password: p }); updateCloudBadge(); }
                     else {
-                        // Verify password
                         if (cloud.password !== p) { alert('❌ Password mismatch with existing cloud data'); return; }
                         if (checkConsistency(wholeData, cloud.data || [])) { await ref.update({ data: wholeData }); alert('✅ Updated'); setCloudCreds({ username: u, password: p }); updateCloudBadge(); }
                         else {
@@ -976,7 +974,22 @@
             document.getElementById('resetTheme').addEventListener('click', () => { applyTheme('#be185d'); document.getElementById('themeModal').style.display = 'none'; });
             document.getElementById('themeColorPicker').addEventListener('input', e => { document.getElementById('themeHexValue').textContent = e.target.value; });
             document.querySelectorAll('.color-preset').forEach(p => p.addEventListener('click', () => { document.getElementById('themeColorPicker').value = p.dataset.color; document.getElementById('themeHexValue').textContent = p.dataset.color; }));
-            window.addEventListener('keydown', e => { if (e.code === 'Space' && activeSession && !activeSession.paused) { e.preventDefault(); solveQuestion(); } else if (e.code === 'KeyP') { e.preventDefault(); togglePause(); } else if (e.code === 'KeyS') { e.preventDefault(); document.getElementById('sessionBtn').click(); } });
+            window.addEventListener('keydown', e => { 
+                // Block only if the active element is not an input or textarea to allow typing normally
+                const tag = document.activeElement.tagName.toLowerCase();
+                if (tag === 'input' || tag === 'textarea') return;
+
+                if (e.code === 'Space' && activeSession && !activeSession.paused) { 
+                    e.preventDefault(); 
+                    solveQuestion(); 
+                } else if (e.code === 'KeyP') { 
+                    e.preventDefault(); 
+                    togglePause(); 
+                } else if (e.code === 'KeyS') { 
+                    e.preventDefault(); 
+                    document.getElementById('sessionBtn').click(); 
+                }
+            });
 
             // Init
             applyTheme(getTheme());
