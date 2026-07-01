@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Session Tracker · Secure Cloud</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --bg: #fdf2f8;
+            --bg-gradient: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 30%, #fdf2f8 60%, #f3e8ff 100%);
+            --card-bg: #ffffff;
+            --primary: #be185d;
+            --primary-light: #fce7f3;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --border: #f3d4e0;
+            --accent: #ec4899;
+            --accent-light: #fdf2f8;
+            --danger: #fecdd3;
+            --danger-text: #be123c;
+            --shadow: 0 4px 20px rgba(190, 24, 93, 0.08);
+            --radius: 20px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            padding: 24px;
+            max-width: 1300px;
+            margin: 0 auto;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        h1 {
+            color: var(--primary);
+            margin-bottom: 6px;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+
+        .cloud-user-badge {
+            background: var(--card-bg);
+            border: 1.5px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 25px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .cloud-user-badge .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            display: inline-block;
+        }
+
+        h2, h3 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 18px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(190, 24, 93, 0.12);
+        }
+
+        .value {
+            font-size: 30px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+            align-items: center;
+        }
+
+        button {
+            background: var(--card-bg);
+            border: 1.5px solid var(--border);
+            padding: 10px 18px;
+            border-radius: 30px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            color: var(--text);
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
+            border-color: var(--accent);
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        button.primary:hover {
+            box-shadow: 0 6px 20px rgba(190, 24, 93, 0.3);
+        }
+
+        button.danger {
+            background: var(--danger);
+            border-color: #fecdd3;
+            color: var(--danger-text);
+            font-weight: 600;
+        }
+
+        button.danger:hover {
+            background: #fecdd3;
+            box-shadow: 0 4px 12px rgba(190, 18, 60, 0.2);
+        }
+
+        button.active-btn {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(190, 24, 93, 0.3);
+        }
+
+        .grid-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .session-list, .question-list {
+            max-height: 350px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 12px;
+            margin-bottom: 4px;
+        }
+
+        .list-item:hover {
+            background: var(--accent-light);
+            transform: translateX(3px);
+        }
+
+        .list-item.selected {
+            background: linear-gradient(135deg, var(--primary-light), var(--accent-light));
+            border-left: 4px solid var(--accent);
+            font-weight: 600;
+        }
+
+        .badge {
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-box {
+            background: var(--card-bg);
+            padding: 28px;
+            border-radius: 24px;
+            min-width: 320px;
+            max-width: 500px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--border);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .flex-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        input {
+            padding: 12px 16px;
+            border-radius: 25px;
+            border: 1.5px solid var(--border);
+            width: 100%;
+            margin: 8px 0;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+            background: #fefefe;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
+        }
+
+        input[type="color"] {
+            width: 60px;
+            height: 40px;
+            padding: 4px;
+            cursor: pointer;
+            border-radius: 12px;
+        }
+
+        .tab-bar {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            padding: 9px 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            background: var(--card-bg);
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            border: 1.5px solid var(--border);
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            box-shadow: 0 4px 12px rgba(190, 24, 93, 0.25);
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        canvas {
+            max-height: 420px;
+            min-height: 350px;
+        }
+
+        .prediction-info {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            text-align: center;
+            font-weight: 500;
+            background: var(--accent-light);
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .selected-point {
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .session-detail-header {
+            margin-bottom: 15px;
+        }
+
+        .session-detail-header p {
+            margin: 4px 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .session-detail-header .stat-highlight {
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .question-list-inline {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .theme-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: transform 0.3s;
+        }
+
+        .theme-btn:hover {
+            transform: scale(1.1) rotate(30deg);
+        }
+
+        .color-presets {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+
+        .color-preset {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .color-preset:hover {
+            transform: scale(1.15);
+            border-color: var(--text);
+        }
+
+        .color-preset.active-preset {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+
+        .logout-cloud-btn {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            cursor: pointer;
+            color: var(--danger-text);
+            background: var(--danger);
+            border: none;
+            border-radius: 15px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header-row">
+        <div>
+            <h1>🌸 Session Tracker</h1>
+            <p class="subtitle">Track your problem solving journey with elegance</p>
+        </div>
+        <div class="cloud-user-badge" id="cloudUserBadge" style="display:none;">
+            <span class="dot"></span> <span id="cloudUsernameDisplay"></span>
+            <button class="logout-cloud-btn" id="logoutCloudBtn">✕</button>
+        </div>
+    </div>
+
+    <div id="resumePrompt" style="background:#fff3cd; padding:14px; border-radius:16px; margin-bottom:15px; display:none; border:1px solid #fbbf24;"></div>
+
+    <div class="dashboard">
+        <div class="card"><div class="value" id="totalQuestions">0</div><div class="label">Total Questions</div></div>
+        <div class="card"><div class="value" id="totalTime">0:00:00</div><div class="label">Total Time</div></div>
+        <div class="card"><div class="value" id="avgTime">0:00</div><div class="label">Avg / Question</div></div>
+        <div class="card"><div class="value" id="sessionCount">0</div><div class="label">Sessions</div></div>
+    </div>
+
+    <div class="controls">
+        <button id="solveBtn" class="primary" disabled>✨ Solved One (Space)</button>
+        <button id="pauseBtn" disabled>⏸️ Pause (P)</button>
+        <button id="sessionBtn">▶️ Begin Session (S)</button>
+        <button id="cloudSaveBtn">☁️ Save to Cloud</button>
+        <button id="cloudRetrieveBtn">⬇️ Retrieve</button>
+    </div>
+
+    <div class="view-toggle">
+        <button id="viewAllSessions" class="active-btn">📊 All Sessions</button>
+        <button id="viewCurrentSession">📈 Current / Selected</button>
+    </div>
+
+    <div class="tab-bar">
+        <div class="tab active" data-tab="timeDist">⏱️ Time Distribution</div>
+        <div class="tab" data-tab="progress">📈 Session Progress</div>
+        <div class="tab" data-tab="prediction">🔮 Questions vs Days</div>
+    </div>
+
+    <div class="panel">
+        <canvas id="mainChart" height="200"></canvas>
+        <div style="text-align:center;"><span class="prediction-info" id="predictionInfo"></span></div>
+    </div>
+
+    <div class="grid-2col" style="margin-top:20px;">
+        <div class="panel"><h3>📋 Sessions</h3><div class="session-list" id="sessionList"></div></div>
+        <div class="panel"><h3>📌 Session Details</h3><div id="sessionDetail">Select a session to view details</div></div>
+    </div>
+
+    <button class="theme-btn" id="themeBtn">🎨</button>
+
+    <!-- Modals -->
+    <div class="modal" id="sessionNameModal">
+        <div class="modal-box">
+            <h3>✨ New Session</h3>
+            <input id="sessionNameInput" placeholder="e.g. Leetcode Hard, DP Practice...">
+            <div class="flex-row" style="justify-content: flex-end; margin-top:15px;">
+                <button id="cancelSessionModal">Cancel</button>
+                <button id="confirmSession" class="primary">Start Session</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="questionModal">
+        <div class="modal-box">
+            <p id="questionInfo"></p>
+            <div class="flex-row" style="justify-content: flex-end;">
+                <button id="deleteQuestionBtn" class="danger">Delete Question</button>
+                <button id="closeQuestionModal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="deleteSessionModal">
+        <div class="modal-box">
+            <p>Delete this session and all its questions?</p>
+            <div class="flex-row" style="justify-content: flex-end;">
+                <button id="confirmDeleteSession" class="danger">Delete</button>
+                <button id="cancelDeleteSession">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="authModal">
+        <div class="modal-box">
+            <h3>🔐 Cloud Access</h3>
+            <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:10px;">Enter your credentials to save/retrieve from cloud</p>
+            <input id="usernameInput" placeholder="Username" autocomplete="off">
+            <input id="passwordInput" type="password" placeholder="Password">
+            <div id="authError" style="color:#dc2626;font-size:0.85rem;margin-top:5px;display:none;"></div>
+            <div class="flex-row" style="justify-content: flex-end; margin-top:15px;">
+                <button id="cancelAuth">Cancel</button>
+                <button id="submitAuth" class="primary">Access Cloud</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="cloudConflictModal">
+        <div class="modal-box">
+            <p>⚠️ Cloud data differs from local. Overwrite cloud with your local data?</p>
+            <div class="flex-row" style="justify-content: flex-end;">
+                <button id="overwriteCloudYes" class="danger">Overwrite</button>
+                <button id="overwriteCloudNo">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="themeModal">
+        <div class="modal-box">
+            <h3>🎨 Customize Theme</h3>
+            <p style="font-size:0.85rem;color:var(--text-secondary);">Choose a preset or enter a custom color</p>
+            <div class="color-presets">
+                <div class="color-preset active-preset" data-color="#be185d" style="background:#be185d;"></div>
+                <div class="color-preset" data-color="#7c3aed" style="background:#7c3aed;"></div>
+                <div class="color-preset" data-color="#0891b2" style="background:#0891b2;"></div>
+                <div class="color-preset" data-color="#059669" style="background:#059669;"></div>
+                <div class="color-preset" data-color="#ea580c" style="background:#ea580c;"></div>
+                <div class="color-preset" data-color="#2563eb" style="background:#2563eb;"></div>
+                <div class="color-preset" data-color="#9333ea" style="background:#9333ea;"></div>
+                <div class="color-preset" data-color="#dc2626" style="background:#dc2626;"></div>
+            </div>
+            <div class="flex-row" style="align-items:center;gap:12px;">
+                <label style="font-weight:600;">Custom:</label>
+                <input type="color" id="themeColorPicker" value="#be185d">
+                <span id="themeHexValue">#be185d</span>
+            </div>
+            <div class="flex-row" style="justify-content: flex-end; margin-top:15px;">
+                <button id="resetTheme">Reset Default</button>
+                <button id="applyTheme" class="primary">Apply Theme</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const STORAGE_KEY = 'tracker_wholeData';
+            const ACTIVE_SESSION_KEY = 'tracker_activeSession';
+            const THEME_KEY = 'tracker_theme';
+            const CLOUD_CREDS_KEY = 'tracker_cloud_creds';
+
+            function getWholeData() { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; }
+            function setWholeData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+            function getActiveSession() { const raw = localStorage.getItem(ACTIVE_SESSION_KEY); return raw ? JSON.parse(raw) : null; }
+            function setActiveSession(session) { if (session) localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session)); else localStorage.removeItem(ACTIVE_SESSION_KEY); }
+            function getTheme() { return localStorage.getItem(THEME_KEY) || '#be185d'; }
+            function setTheme(color) { localStorage.setItem(THEME_KEY, color); }
+            function getCloudCreds() { const raw = localStorage.getItem(CLOUD_CREDS_KEY); return raw ? JSON.parse(raw) : null; }
+            function setCloudCreds(creds) { if (creds) localStorage.setItem(CLOUD_CREDS_KEY, JSON.stringify(creds)); else localStorage.removeItem(CLOUD_CREDS_KEY); }
+
+            async function generateHash(username, password) {
+                const text = username.toLowerCase().trim() + ':' + password;
+                const encoder = new TextEncoder();
+                const data = encoder.encode(text);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+
+            const firebaseConfig = {
+                apiKey: "AIzaSyCLTPMIhAkzXvmWRuJOpVNGHvvsjsg5rfc",
+                authDomain: "ssqt-d382f.firebaseapp.com",
+                databaseURL: "https://ssqt-d382f-default-rtdb.firebaseio.com",
+                projectId: "ssqt-d382f",
+                storageBucket: "ssqt-d382f.firebasestorage.app",
+                messagingSenderId: "1048458631528",
+                appId: "1:1048458631528:web:c670ffcc68087227b3dedd"
+            };
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.database();
+
+            function applyTheme(hexColor) {
+                const rgb = hexToRgb(hexColor);
+                const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+                const primary = hexColor;
+                const accent = hslToHex(hsl.h, hsl.s, Math.min(hsl.l + 8, 65));
+                const primaryLight = hslToHex(hsl.h, 40, 94);
+                const accentLight = hslToHex(hsl.h, 30, 96);
+                const border = hslToHex(hsl.h, 40, 88);
+                const bgGradient = `linear-gradient(135deg, ${hslToHex(hsl.h, 25, 96)} 0%, ${hslToHex(hsl.h, 30, 93)} 30%, ${hslToHex(hsl.h, 25, 96)} 60%, ${hslToHex((hsl.h + 30) % 360, 25, 95)} 100%)`;
+                const root = document.documentElement;
+                root.style.setProperty('--primary', primary);
+                root.style.setProperty('--accent', accent);
+                root.style.setProperty('--primary-light', primaryLight);
+                root.style.setProperty('--accent-light', accentLight);
+                root.style.setProperty('--border', border);
+                root.style.setProperty('--bg-gradient', bgGradient);
+                setTheme(hexColor);
+                document.getElementById('themeColorPicker').value = hexColor;
+                document.getElementById('themeHexValue').textContent = hexColor;
+                document.querySelectorAll('.color-preset').forEach(p => p.classList.toggle('active-preset', p.dataset.color === hexColor));
+                if (typeof renderCurrentCharts === 'function') renderCurrentCharts();
+            }
+
+            function hexToRgb(hex) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : { r: 190, g: 24, b: 93 };
+            }
+
+            function rgbToHsl(r, g, b) {
+                r /= 255; g /= 255; b /= 255;
+                const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                let h, s, l = (max + min) / 2;
+                if (max === min) { h = s = 0; } else {
+                    const d = max - min;
+                    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                    switch (max) { case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break; case g: h = ((b - r) / d + 2) / 6; break; case b: h = ((r - g) / d + 4) / 6; break; }
+                }
+                return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+            }
+
+            function hslToHex(h, s, l) {
+                s /= 100; l /= 100;
+                const a = s * Math.min(l, 1 - l);
+                const f = n => { const k = (n + h / 30) % 12; const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1); return Math.round(255 * color).toString(16).padStart(2, '0'); };
+                return `#${f(0)}${f(8)}${f(4)}`;
+            }
+
+            let wholeData = getWholeData();
+            let activeSession = getActiveSession();
+            let currentView = 'all';
+            let selectedSessionIndex = null;
+            let predictionStartDay = null;
+            let pendingCloudOp = null;
+
+            function formatTime(sec) { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.floor(sec % 60); return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
+            function formatShort(sec) { const m = Math.floor(sec / 60), s = Math.floor(sec % 60); return `${m}:${String(s).padStart(2,'0')}`; }
+
+            function getEffectiveData() {
+                if (currentView === 'session') {
+                    if (selectedSessionIndex !== null && selectedSessionIndex < wholeData.length) return [wholeData[selectedSessionIndex]];
+                    else if (activeSession) return [[activeSession.name, activeSession.startTime, ...activeSession.questions]];
+                    return [];
+                }
+                return wholeData;
+            }
+
+            function recalcAllStats() {
+                let totalQ = 0, totalTime = 0;
+                const effectiveData = getEffectiveData();
+                effectiveData.forEach(session => { const times = session.slice(2); totalQ += times.length; totalTime += times.reduce((a, b) => a + b, 0); });
+                if (currentView === 'session' && activeSession && selectedSessionIndex === null) { totalQ = activeSession.questions.length; totalTime = activeSession.questions.reduce((a, b) => a + b, 0); }
+                document.getElementById('totalQuestions').textContent = totalQ;
+                document.getElementById('totalTime').textContent = formatTime(totalTime);
+                document.getElementById('avgTime').textContent = totalQ ? formatShort(totalTime / totalQ) : '0:00';
+                document.getElementById('sessionCount').textContent = currentView === 'all' ? wholeData.length : (selectedSessionIndex !== null ? 1 : (activeSession ? 1 : 0));
+            }
+
+            function getSessionTimes(session) { return session.slice(2).map(Number); }
+
+            let mainChart;
+            const ctx = document.getElementById('mainChart').getContext('2d');
+
+            function destroyChart() { if (mainChart) mainChart.destroy(); }
+
+            function getAccentColor() {
+                return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ec4899';
+            }
+
+            function renderTimeDistribution() {
+                destroyChart();
+                const buckets = Array(11).fill(0);
+                const effectiveData = getEffectiveData();
+                const color = getAccentColor();
+                effectiveData.forEach(s => getSessionTimes(s).forEach(t => { const min = Math.floor(t / 60); if (min >= 10) buckets[10]++; else buckets[min]++; }));
+                if (currentView === 'session' && activeSession && selectedSessionIndex === null) {
+                    activeSession.questions.forEach(t => { const min = Math.floor(t / 60); if (min >= 10) buckets[10]++; else buckets[min]++; });
+                }
+                mainChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: ['0-1','1-2','2-3','3-4','4-5','5-6','6-7','7-8','8-9','9-10','>10'], datasets: [{ label: 'Questions', data: buckets, backgroundColor: color + '99', borderRadius: 8 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true } }, pan: { enabled: true } } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
+                });
+            }
+
+            function renderSessionProgress() {
+                destroyChart();
+                const allData = currentView === 'all' ? wholeData : getEffectiveData();
+                const color = getAccentColor();
+                const labels = allData.map((s, i) => s[0] || `S${i+1}`);
+                const questions = allData.map(s => getSessionTimes(s).length);
+                const avgTimes = allData.map(s => { const t = getSessionTimes(s); return t.length ? t.reduce((a,b) => a+b, 0) / t.length / 60 : 0; });
+                if (currentView === 'session' && activeSession && selectedSessionIndex === null) {
+                    labels.push(activeSession.name + ' (active)');
+                    questions.push(activeSession.questions.length);
+                    avgTimes.push(activeSession.questions.length ? activeSession.questions.reduce((a,b) => a+b, 0) / activeSession.questions.length / 60 : 0);
+                }
+                mainChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels, datasets: [
+                        { label: 'Questions', data: questions, borderColor: color, backgroundColor: color + '33', tension: 0.4, fill: true, pointBackgroundColor: color, pointRadius: 5, yAxisID: 'y' },
+                        { label: 'Avg Time (min)', data: avgTimes, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#6366f1', pointRadius: 5, yAxisID: 'y1' }
+                    ]},
+                    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { zoom: { zoom: { wheel: { enabled: true } }, pan: { enabled: true } } }, scales: { y: { type: 'linear', position: 'left', title: { display: true, text: 'Questions' }, beginAtZero: true }, y1: { type: 'linear', position: 'right', title: { display: true, text: 'Avg Min' }, grid: { drawOnChartArea: false }, beginAtZero: true } } }
+                });
+            }
+
+            function renderPredictionChart() {
+                destroyChart();
+                const allData = currentView === 'all' ? wholeData : getEffectiveData();
+                const color = getAccentColor();
+                const dailyMap = new Map();
+                allData.forEach(s => { const day = new Date(s[1]).toLocaleDateString(); dailyMap.set(day, (dailyMap.get(day) || 0) + getSessionTimes(s).length); });
+                if (currentView === 'session' && activeSession && selectedSessionIndex === null) {
+                    const today = new Date().toLocaleDateString();
+                    dailyMap.set(today, (dailyMap.get(today) || 0) + activeSession.questions.length);
+                }
+                const sorted = [...dailyMap.entries()].sort((a, b) => new Date(a[0]) - new Date(b[0]));
+                const labels = sorted.map(e => e[0]);
+                const dataPoints = sorted.map(e => e[1]);
+                let startIdx = 0;
+                if (predictionStartDay) { startIdx = labels.findIndex(l => l === predictionStartDay); if (startIdx === -1) startIdx = 0; }
+                const relevant = dataPoints.slice(startIdx);
+                const avg = relevant.length ? relevant.reduce((a,b) => a+b, 0) / relevant.length : 0;
+                const futureLabels = [];
+                for (let i = 1; i <= 5; i++) { const d = new Date(); d.setDate(d.getDate() + i); futureLabels.push(d.toLocaleDateString()); }
+                document.getElementById('predictionInfo').innerHTML = predictionStartDay ?
+                    `📊 From <span class="selected-point">${predictionStartDay}</span> → <strong>${avg.toFixed(1)} q/day</strong>` :
+                    `📊 Overall: <strong>${avg.toFixed(1)} q/day</strong>`;
+                document.getElementById('predictionInfo').style.display = 'inline-block';
+                mainChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: [...labels, ...futureLabels], datasets: [
+                        { label: 'Solved', data: dataPoints, borderColor: color, backgroundColor: color + '22', tension: 0.4, fill: true, pointBackgroundColor: labels.map((l,i) => l === predictionStartDay ? '#ef4444' : color), pointRadius: labels.map((l,i) => l === predictionStartDay ? 8 : 5) },
+                        { label: 'Predicted', data: Array(labels.length).fill(null).concat(Array(futureLabels.length).fill(avg)), borderDash: [6,4], borderColor: '#f59e0b', pointRadius: 0 }
+                    ]},
+                    options: { responsive: true, maintainAspectRatio: false, onClick: (e, els) => { if (els.length && els[0].index < labels.length) { predictionStartDay = labels[els[0].index]; renderPredictionChart(); } }, plugins: { zoom: { zoom: { wheel: { enabled: true } }, pan: { enabled: true } } }, scales: { y: { beginAtZero: true } } }
+                });
+                ctx.canvas.ondblclick = () => { predictionStartDay = null; renderPredictionChart(); };
+            }
+
+            function renderCurrentCharts() {
+                const tab = document.querySelector('.tab.active');
+                const t = tab ? tab.dataset.tab : 'timeDist';
+                if (t === 'timeDist') renderTimeDistribution();
+                else if (t === 'progress') renderSessionProgress();
+                else if (t === 'prediction') renderPredictionChart();
+                else renderTimeDistribution();
+            }
+
+            function updateCloudBadge() {
+                const creds = getCloudCreds();
+                const badge = document.getElementById('cloudUserBadge');
+                const display = document.getElementById('cloudUsernameDisplay');
+                if (creds) {
+                    badge.style.display = 'flex';
+                    display.textContent = creds.username;
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+
+            function renderSessionList() {
+                const container = document.getElementById('sessionList');
+                container.innerHTML = '';
+                if (activeSession) {
+                    const div = document.createElement('div');
+                    div.className = 'list-item' + (selectedSessionIndex === null && currentView === 'session' ? ' selected' : '');
+                    div.innerHTML = `<span><strong>🟢 ${activeSession.name}</strong> (${activeSession.questions.length} q)</span>`;
+                    div.onclick = () => { selectedSessionIndex = null; currentView = 'session'; updateViewButtons(); recalcAllStats(); renderCurrentCharts(); renderSessionList(); document.getElementById('sessionDetail').innerHTML = '<p>✨ Active session</p>'; };
+                    container.appendChild(div);
+                }
+                wholeData.forEach((s, i) => {
+                    const div = document.createElement('div');
+                    div.className = 'list-item' + (selectedSessionIndex === i && currentView === 'session' ? ' selected' : '');
+                    const times = getSessionTimes(s);
+                    div.innerHTML = `<span><strong>${s[0]}</strong> (${times.length} q)</span><span style="font-size:0.85rem;">${new Date(s[1]).toLocaleDateString()}</span><button class="danger" data-index="${i}" style="padding:4px 10px;font-size:0.8rem;">🗑️</button>`;
+                    div.onclick = (e) => { if (e.target.tagName === 'BUTTON') return; selectedSessionIndex = i; currentView = 'session'; updateViewButtons(); recalcAllStats(); renderCurrentCharts(); renderSessionList(); showSessionDetail(i); };
+                    container.appendChild(div);
+                });
+                document.querySelectorAll('#sessionList .danger').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); pendingDeleteSessionIndex = parseInt(b.dataset.index); document.getElementById('deleteSessionModal').style.display = 'flex'; }));
+            }
+
+            function updateViewButtons() {
+                document.getElementById('viewAllSessions').classList.toggle('active-btn', currentView === 'all');
+                document.getElementById('viewCurrentSession').classList.toggle('active-btn', currentView === 'session');
+            }
+
+            let pendingDeleteSessionIndex = null;
+
+            function showSessionDetail(i) {
+                const s = wholeData[i], times = getSessionTimes(s), avg = times.length ? times.reduce((a,b) => a+b, 0) / times.length : 0;
+                const d = document.getElementById('sessionDetail');
+                d.innerHTML = `<div class="session-detail-header"><h4>${s[0]}</h4><p>📅 ${new Date(s[1]).toLocaleString()}</p><p>❓ <span class="stat-highlight">${times.length}</span> | ⏱️ Avg <span class="stat-highlight">${formatShort(avg)}</span> | Total <span class="stat-highlight">${formatTime(times.reduce((a,b)=>a+b,0))}</span></p></div><div class="question-list-inline"></div>`;
+                const ql = d.querySelector('.question-list-inline');
+                times.forEach((t, j) => { const q = document.createElement('div'); q.className = 'list-item'; q.innerHTML = `Q${j+1}: <strong>${formatShort(t)}</strong> <span class="badge" style="cursor:pointer;">delete</span>`; q.onclick = () => openQuestionModal(i, j); ql.appendChild(q); });
+            }
+
+            function openQuestionModal(si, qi) {
+                document.getElementById('questionInfo').textContent = `Delete Q${qi+1} (${formatShort(getSessionTimes(wholeData[si])[qi])})?`;
+                document.getElementById('questionModal').dataset.sessionIdx = si;
+                document.getElementById('questionModal').dataset.questionIdx = qi;
+                document.getElementById('questionModal').style.display = 'flex';
+            }
+
+            function updateActiveUI() {
+                const sb = document.getElementById('solveBtn'), pb = document.getElementById('pauseBtn'), tb = document.getElementById('sessionBtn');
+                if (activeSession) { sb.disabled = activeSession.paused; pb.disabled = false; pb.textContent = activeSession.paused ? '▶️ Resume' : '⏸️ Pause'; tb.textContent = '⏹️ End'; }
+                else { sb.disabled = true; pb.disabled = true; tb.textContent = '▶️ Begin'; }
+            }
+
+            function solveQuestion() {
+                if (!activeSession || activeSession.paused) return;
+                const now = Date.now();
+                activeSession.questions.push(activeSession.lastQuestionTime ? (now - activeSession.lastQuestionTime) / 1000 : (now - activeSession.startTime) / 1000);
+                activeSession.lastQuestionTime = now;
+                setActiveSession(activeSession);
+                recalcAllStats(); renderCurrentCharts(); renderSessionList();
+            }
+
+            function togglePause() {
+                if (!activeSession) return;
+                if (activeSession.paused) { activeSession.paused = false; activeSession.lastQuestionTime = Date.now(); }
+                else { activeSession.paused = true; }
+                setActiveSession(activeSession);
+                updateActiveUI();
+            }
+
+            function beginSession(name) {
+                activeSession = { name: name || `Session ${wholeData.length+1}`, startTime: Date.now(), questions: [], paused: false, lastQuestionTime: null };
+                setActiveSession(activeSession); updateActiveUI(); currentView = 'session'; selectedSessionIndex = null; updateViewButtons();
+                recalcAllStats(); renderCurrentCharts(); renderSessionList();
+            }
+
+            function endSession() {
+                if (!activeSession) return;
+                wholeData.push([activeSession.name, activeSession.startTime, ...activeSession.questions]);
+                setWholeData(wholeData); activeSession = null; setActiveSession(null); updateActiveUI();
+                currentView = 'all'; selectedSessionIndex = null; updateViewButtons();
+                recalcAllStats(); renderSessionList(); renderCurrentCharts();
+            }
+
+            function checkInterruption() {
+                const saved = getActiveSession();
+                if (saved) {
+                    document.getElementById('resumePrompt').style.display = 'block';
+                    document.getElementById('resumePrompt').innerHTML = `<strong>🌸 Unfinished: ${saved.name}</strong> <button id="resumeYes" style="background:var(--accent);color:white;border:none;padding:8px 16px;border-radius:20px;cursor:pointer;margin-left:10px;">Continue</button><button id="resumeNo" style="background:#fecdd3;color:#be123c;border:none;padding:8px 16px;border-radius:20px;cursor:pointer;margin-left:5px;">Discard</button>`;
+                    document.getElementById('resumeYes').onclick = () => { activeSession = saved; if (!activeSession.paused) activeSession.lastQuestionTime = Date.now(); setActiveSession(activeSession); document.getElementById('resumePrompt').style.display = 'none'; updateActiveUI(); currentView = 'session'; selectedSessionIndex = null; updateViewButtons(); recalcAllStats(); renderCurrentCharts(); renderSessionList(); };
+                    document.getElementById('resumeNo').onclick = () => { setActiveSession(null); activeSession = null; document.getElementById('resumePrompt').style.display = 'none'; updateActiveUI(); recalcAllStats(); renderCurrentCharts(); renderSessionList(); };
+                }
+            }
+
+            function checkConsistency(local, cloud) {
+                if (!cloud || local.length !== cloud.length) return false;
+                for (let i = 0; i < cloud.length; i++) {
+                    const found = local.find(l => l[0] === cloud[i][0] && l[1] === cloud[i][1]);
+                    if (!found || found.length !== cloud[i].length) return false;
+                    for (let j = 2; j < cloud[i].length; j++) if (found[j] !== cloud[i][j]) return false;
+                }
+                return true;
+            }
+
+            function mergeData(local, cloud) {
+                const merged = [...cloud];
+                const keys = new Set(cloud.map(s => `${s[0]}_${s[1]}`));
+                local.forEach(s => { if (!keys.has(`${s[0]}_${s[1]}`)) merged.push(s); });
+                return merged.sort((a, b) => a[1] - b[1]);
+            }
+
+            async function cloudSave() {
+                const u = document.getElementById('usernameInput').value.trim(), p = document.getElementById('passwordInput').value;
+                if (!u || !p) return;
+                try {
+                    const hash = await generateHash(u, p);
+                    const ref = db.ref('trackerData/' + hash);
+                    const snap = await ref.once('value');
+                    const cloud = snap.val();
+                    // Store data with username and password inside
+                    const payload = { username: u, password: p, data: wholeData };
+                    if (!cloud) { await ref.set(payload); alert('✅ Created'); setCloudCreds({ username: u, password: p }); updateCloudBadge(); }
+                    else {
+                        // Verify password
+                        if (cloud.password !== p) { alert('❌ Password mismatch with existing cloud data'); return; }
+                        if (checkConsistency(wholeData, cloud.data || [])) { await ref.update({ data: wholeData }); alert('✅ Updated'); setCloudCreds({ username: u, password: p }); updateCloudBadge(); }
+                        else {
+                            document.getElementById('cloudConflictModal').style.display = 'flex';
+                            document.getElementById('overwriteCloudYes').onclick = async () => { await ref.update({ data: wholeData }); document.getElementById('cloudConflictModal').style.display = 'none'; alert('✅ Overwritten'); setCloudCreds({ username: u, password: p }); updateCloudBadge(); };
+                        }
+                    }
+                    document.getElementById('authModal').style.display = 'none';
+                } catch (e) { document.getElementById('authError').textContent = e.message; document.getElementById('authError').style.display = 'block'; }
+            }
+
+            async function cloudRetrieve() {
+                const u = document.getElementById('usernameInput').value.trim(), p = document.getElementById('passwordInput').value;
+                if (!u || !p) return;
+                try {
+                    const hash = await generateHash(u, p);
+                    const snap = await db.ref('trackerData/' + hash).once('value');
+                    const cloud = snap.val();
+                    if (!cloud || !cloud.data) { document.getElementById('authError').textContent = 'No data found'; document.getElementById('authError').style.display = 'block'; return; }
+                    if (cloud.password !== p) { document.getElementById('authError').textContent = 'Wrong password'; document.getElementById('authError').style.display = 'block'; return; }
+                    if (!checkConsistency(wholeData, cloud.data)) {
+                        wholeData = mergeData(wholeData, cloud.data);
+                        setWholeData(wholeData); recalcAllStats(); renderSessionList(); renderCurrentCharts();
+                        alert('✅ Merged with cloud');
+                    } else alert('Already synced');
+                    setCloudCreds({ username: cloud.username, password: p });
+                    updateCloudBadge();
+                    document.getElementById('authModal').style.display = 'none';
+                } catch (e) { document.getElementById('authError').textContent = e.message; document.getElementById('authError').style.display = 'block'; }
+            }
+
+            function logoutCloud() {
+                if (confirm('Disconnect from cloud? You can reconnect anytime with your credentials.')) {
+                    setCloudCreds(null);
+                    updateCloudBadge();
+                }
+            }
+
+            // Event bindings
+            document.getElementById('solveBtn').addEventListener('click', solveQuestion);
+            document.getElementById('pauseBtn').addEventListener('click', togglePause);
+            document.getElementById('sessionBtn').addEventListener('click', () => activeSession ? endSession() : (document.getElementById('sessionNameModal').style.display = 'flex'));
+            document.getElementById('confirmSession').addEventListener('click', () => { const n = document.getElementById('sessionNameInput').value.trim(); document.getElementById('sessionNameModal').style.display = 'none'; beginSession(n); });
+            document.getElementById('cancelSessionModal').addEventListener('click', () => document.getElementById('sessionNameModal').style.display = 'none');
+            document.getElementById('deleteQuestionBtn').addEventListener('click', () => { const m = document.getElementById('questionModal'); wholeData[+m.dataset.sessionIdx].splice(+m.dataset.questionIdx + 2, 1); setWholeData(wholeData); m.style.display = 'none'; recalcAllStats(); renderSessionList(); renderCurrentCharts(); });
+            document.getElementById('closeQuestionModal').addEventListener('click', () => document.getElementById('questionModal').style.display = 'none');
+            document.getElementById('confirmDeleteSession').addEventListener('click', () => { if (pendingDeleteSessionIndex !== null) { wholeData.splice(pendingDeleteSessionIndex, 1); setWholeData(wholeData); if (selectedSessionIndex === pendingDeleteSessionIndex) { selectedSessionIndex = null; currentView = 'all'; updateViewButtons(); } recalcAllStats(); renderSessionList(); renderCurrentCharts(); } document.getElementById('deleteSessionModal').style.display = 'none'; });
+            document.getElementById('cancelDeleteSession').addEventListener('click', () => document.getElementById('deleteSessionModal').style.display = 'none');
+            document.getElementById('viewAllSessions').addEventListener('click', () => { currentView = 'all'; selectedSessionIndex = null; updateViewButtons(); recalcAllStats(); renderCurrentCharts(); renderSessionList(); });
+            document.getElementById('viewCurrentSession').addEventListener('click', () => { if (activeSession) { currentView = 'session'; selectedSessionIndex = null; } else if (wholeData.length) { currentView = 'session'; selectedSessionIndex = wholeData.length - 1; } updateViewButtons(); recalcAllStats(); renderCurrentCharts(); renderSessionList(); if (selectedSessionIndex !== null) showSessionDetail(selectedSessionIndex); });
+            document.getElementById('cloudSaveBtn').addEventListener('click', () => { pendingCloudOp = 'save'; document.getElementById('authModal').style.display = 'flex'; document.getElementById('authError').style.display = 'none'; });
+            document.getElementById('cloudRetrieveBtn').addEventListener('click', () => { pendingCloudOp = 'retrieve'; document.getElementById('authModal').style.display = 'flex'; document.getElementById('authError').style.display = 'none'; });
+            document.getElementById('submitAuth').addEventListener('click', () => pendingCloudOp === 'save' ? cloudSave() : cloudRetrieve());
+            document.getElementById('cancelAuth').addEventListener('click', () => { document.getElementById('authModal').style.display = 'none'; });
+            document.getElementById('overwriteCloudNo').addEventListener('click', () => document.getElementById('cloudConflictModal').style.display = 'none');
+            document.getElementById('logoutCloudBtn').addEventListener('click', logoutCloud);
+            document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => { document.querySelectorAll('.tab').forEach(x => x.classList.remove('active')); t.classList.add('active'); renderCurrentCharts(); }));
+            document.getElementById('themeBtn').addEventListener('click', () => document.getElementById('themeModal').style.display = 'flex');
+            document.getElementById('applyTheme').addEventListener('click', () => { applyTheme(document.getElementById('themeColorPicker').value); document.getElementById('themeModal').style.display = 'none'; });
+            document.getElementById('resetTheme').addEventListener('click', () => { applyTheme('#be185d'); document.getElementById('themeModal').style.display = 'none'; });
+            document.getElementById('themeColorPicker').addEventListener('input', e => { document.getElementById('themeHexValue').textContent = e.target.value; });
+            document.querySelectorAll('.color-preset').forEach(p => p.addEventListener('click', () => { document.getElementById('themeColorPicker').value = p.dataset.color; document.getElementById('themeHexValue').textContent = p.dataset.color; }));
+            window.addEventListener('keydown', e => { if (e.code === 'Space' && activeSession && !activeSession.paused) { e.preventDefault(); solveQuestion(); } else if (e.code === 'KeyP') { e.preventDefault(); togglePause(); } else if (e.code === 'KeyS') { e.preventDefault(); document.getElementById('sessionBtn').click(); } });
+
+            // Init
+            applyTheme(getTheme());
+            updateViewButtons();
+            recalcAllStats();
+            renderSessionList();
+            renderTimeDistribution();
+            updateActiveUI();
+            updateCloudBadge();
+            checkInterruption();
+        })();
+    </script>
+</body>
+</html>
